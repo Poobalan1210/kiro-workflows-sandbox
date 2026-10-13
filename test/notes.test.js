@@ -22,15 +22,19 @@ test('GET /health returns ok', async (t) => {
   assert.deepEqual(await res.json(), { status: 'ok' });
 });
 
-test('GET /notes returns every note, newest first', async (t) => {
+test('GET /notes returns default page with 20 notes, newest first', async (t) => {
   const app = await startApp();
   t.after(app.close);
 
   const res = await fetch(`${app.url}/notes`);
   assert.equal(res.status, 200);
 
-  const { notes } = await res.json();
-  assert.equal(notes.length, 45);
+  const { notes, page, limit, total, totalPages } = await res.json();
+  assert.equal(notes.length, 20);
+  assert.equal(page, 1);
+  assert.equal(limit, 20);
+  assert.equal(total, 45);
+  assert.equal(totalPages, 3);
   for (let i = 1; i < notes.length; i++) {
     assert.ok(notes[i - 1].createdAt >= notes[i].createdAt, 'notes should be newest first');
   }
@@ -120,4 +124,130 @@ test('DELETE /notes/:id removes the note', async (t) => {
   const after = await fetch(`${app.url}/notes/1`);
   assert.equal(after.status, 404);
   await after.text();
+});
+
+test('GET /notes with pagination returns correct page and limit', async (t) => {
+  const app = await startApp();
+  t.after(app.close);
+
+  const res = await fetch(`${app.url}/notes?page=2&limit=10`);
+  assert.equal(res.status, 200);
+
+  const { notes, page, limit, total, totalPages } = await res.json();
+  assert.equal(notes.length, 10);
+  assert.equal(page, 2);
+  assert.equal(limit, 10);
+  assert.equal(total, 45);
+  assert.equal(totalPages, 5);
+});
+
+test('GET /notes without parameters returns default page 1 with 20 notes', async (t) => {
+  const app = await startApp();
+  t.after(app.close);
+
+  const res = await fetch(`${app.url}/notes`);
+  assert.equal(res.status, 200);
+
+  const { notes, page, limit, total, totalPages } = await res.json();
+  assert.equal(notes.length, 20);
+  assert.equal(page, 1);
+  assert.equal(limit, 20);
+  assert.equal(total, 45);
+  assert.equal(totalPages, 3);
+});
+
+test('GET /notes with limit > 100 returns 400', async (t) => {
+  const app = await startApp();
+  t.after(app.close);
+
+  const res = await fetch(`${app.url}/notes?limit=101`);
+  assert.equal(res.status, 400);
+  const { error } = await res.json();
+  assert.equal(error.code, 'VALIDATION_ERROR');
+});
+
+test('GET /notes with non-integer limit returns 400', async (t) => {
+  const app = await startApp();
+  t.after(app.close);
+
+  const res = await fetch(`${app.url}/notes?limit=2.5`);
+  assert.equal(res.status, 400);
+  const { error } = await res.json();
+  assert.equal(error.code, 'VALIDATION_ERROR');
+});
+
+test('GET /notes with zero limit returns 400', async (t) => {
+  const app = await startApp();
+  t.after(app.close);
+
+  const res = await fetch(`${app.url}/notes?limit=0`);
+  assert.equal(res.status, 400);
+  const { error } = await res.json();
+  assert.equal(error.code, 'VALIDATION_ERROR');
+});
+
+test('GET /notes with negative limit returns 400', async (t) => {
+  const app = await startApp();
+  t.after(app.close);
+
+  const res = await fetch(`${app.url}/notes?limit=-1`);
+  assert.equal(res.status, 400);
+  const { error } = await res.json();
+  assert.equal(error.code, 'VALIDATION_ERROR');
+});
+
+test('GET /notes with non-integer page returns 400', async (t) => {
+  const app = await startApp();
+  t.after(app.close);
+
+  const res = await fetch(`${app.url}/notes?page=1.5`);
+  assert.equal(res.status, 400);
+  const { error } = await res.json();
+  assert.equal(error.code, 'VALIDATION_ERROR');
+});
+
+test('GET /notes with zero page returns 400', async (t) => {
+  const app = await startApp();
+  t.after(app.close);
+
+  const res = await fetch(`${app.url}/notes?page=0`);
+  assert.equal(res.status, 400);
+  const { error } = await res.json();
+  assert.equal(error.code, 'VALIDATION_ERROR');
+});
+
+test('GET /notes with negative page returns 400', async (t) => {
+  const app = await startApp();
+  t.after(app.close);
+
+  const res = await fetch(`${app.url}/notes?page=-1`);
+  assert.equal(res.status, 400);
+  const { error } = await res.json();
+  assert.equal(error.code, 'VALIDATION_ERROR');
+});
+
+test('GET /notes with page beyond last returns empty notes array', async (t) => {
+  const app = await startApp();
+  t.after(app.close);
+
+  const res = await fetch(`${app.url}/notes?page=10&limit=10`);
+  assert.equal(res.status, 200);
+
+  const { notes, total, totalPages } = await res.json();
+  assert.equal(notes.length, 0);
+  assert.equal(total, 45);
+  assert.equal(totalPages, 5);
+});
+
+test('GET /notes notes remain newest first with pagination', async (t) => {
+  const app = await startApp();
+  t.after(app.close);
+
+  const res = await fetch(`${app.url}/notes?page=1&limit=10`);
+  assert.equal(res.status, 200);
+
+  const { notes } = await res.json();
+  for (let i = 1; i < notes.length; i++) {
+    assert.ok(notes[i - 1].createdAt >= notes[i].createdAt, 'notes should be newest first');
+  }
 });
