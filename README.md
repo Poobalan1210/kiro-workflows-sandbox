@@ -22,10 +22,23 @@ Returns `200` with `{ "status": "ok" }`.
 
 ### GET /notes
 
-Returns every note, newest first.
+Returns notes with pagination. Accepts `page` and `limit` query parameters.
+
+- `page`: Page number (1-indexed). Default: 1
+- `limit`: Number of notes per page. Max: 100. Default: 20
+
+Returns a 400 with `VALIDATION_ERROR` if `page` or `limit` are not positive integers, or if `limit` exceeds 100.
 
 ```json
-{ "notes": [{ "id": 45, "title": "Workout plan #45", "body": "", "createdAt": "2026-01-03T05:00:00.000Z" }] }
+{
+  "notes": [
+    { "id": 45, "title": "Workout plan #45", "body": "", "createdAt": "2026-01-03T05:00:00.000Z" }
+  ],
+  "page": 1,
+  "limit": 20,
+  "total": 45,
+  "totalPages": 3
+}
 ```
 
 ### POST /notes

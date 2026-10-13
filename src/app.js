@@ -36,7 +36,7 @@ async function route(req, res, store) {
   // /notes
   if (parts.length === 1) {
     if (req.method === 'GET') {
-      return sendJson(res, 200, { notes: store.list() });
+      return getNotes(req, res, store);
     }
     if (req.method === 'POST') {
       return createNote(req, res, store);
@@ -66,6 +66,53 @@ async function route(req, res, store) {
   }
 
   return sendError(res, 405, 'METHOD_NOT_ALLOWED', 'Method not allowed');
+}
+
+async function getNotes(req, res, store) {
+  const url = new URL(req.url, 'http://localhost');
+  const pageParam = url.searchParams.get('page');
+  const limitParam = url.searchParams.get('limit');
+
+  let page = 1;
+  let limit = 20;
+
+  if (pageParam !== null) {
+    const parsed = parseInt(pageParam, 10);
+    if (String(parsed) !== pageParam) {
+      return sendError(res, 400, 'VALIDATION_ERROR', 'page must be a positive integer');
+    }
+    page = parsed;
+  }
+  if (limitParam !== null) {
+    const parsed = parseInt(limitParam, 10);
+    if (String(parsed) !== limitParam) {
+      return sendError(res, 400, 'VALIDATION_ERROR', 'limit must be a positive integer');
+    }
+    limit = parsed;
+  }
+
+  // Validate page and limit
+  if (!Number.isInteger(page) || page <= 0) {
+    return sendError(res, 400, 'VALIDATION_ERROR', 'page must be a positive integer');
+  }
+
+  if (!Number.isInteger(limit) || limit <= 0) {
+    return sendError(res, 400, 'VALIDATION_ERROR', 'limit must be a positive integer');
+  }
+
+  if (limit > 100) {
+    return sendError(res, 400, 'VALIDATION_ERROR', 'limit must not exceed 100');
+  }
+
+  const allNotes = store.list();
+  const total = allNotes.length;
+  const totalPages = Math.ceil(total / limit);
+
+  const start = (page - 1) * limit;
+  const end = start + limit;
+  const paginatedNotes = allNotes.slice(start, end);
+
+  return sendJson(res, 200, { notes: paginatedNotes, page, limit, total, totalPages });
 }
 
 async function createNote(req, res, store) {
